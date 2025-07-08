@@ -1,0 +1,17 @@
+# libraries
+
+library(targets)
+library(tarchetypes)
+library(tidyverse)
+library(dataDownloader)
+library(vegan)
+library(ggvegan)
+library(Hmisc)
+library(glue)
+library(traitstrap)
+library(lme4)
+library(broom)
+library(broom.mixed)
+library(dataDocumentation)
+library(tidymodels)
+library(sjPlot)
