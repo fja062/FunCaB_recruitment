@@ -38,8 +38,8 @@ make_fg_cover_coefficients <- function(data){
   
   # multiply sum of covers by fg coefficients to impute missing total_forb/graminoid values
   community <- data |>
-    mutate(total_graminoids2 = if_else((is.na(total_graminoids) & fg_remaining %in% c("G", "GB", "GF", "FGB") & functional_group == "graminoid"), sum_cover*graminoid_coefficient$estimate, total_graminoids),
-           total_forbs2 = if_else((is.na(total_forbs) & fg_remaining %in% c("F", "FB", "GF", "FGB") & functional_group == "forb"), sum_cover*forb_coefficient$estimate, total_forbs))
+    mutate(total_graminoids = if_else((is.na(total_graminoids) & fg_remaining %in% c("G", "GB", "GF", "FGB") & functional_group == "graminoid"), sum_cover*graminoid_coefficient$estimate, total_graminoids),
+           total_forbs = if_else((is.na(total_forbs) & fg_remaining %in% c("F", "FB", "GF", "FGB") & functional_group == "forb"), sum_cover*forb_coefficient$estimate, total_forbs))
   
   community
   
