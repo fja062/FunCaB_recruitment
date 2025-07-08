@@ -22,9 +22,9 @@ download_plan <- list(
     format = "file"
   ),
 
-  # community composition
+  # funcab recruitment composition
   tar_target(
-    name = recruitment_download,
+    name = funcab_recruitment_download,
     command =  get_file(node = "4c5v2",
                         file = "FunCaB_clean_recruitment_2018-2019.csv",
                         path = "data",
@@ -75,12 +75,18 @@ download_plan <- list(
     command =  read_csv(community_download)
   ),
 
-    # recruitment
+    # funcab recruitment
   tar_target(
-    name = recruitment_raw,
-    command =  read_csv(recruitment_download)
+    name = funcab_recruitment_raw,
+    command =  read_csv(funcab_recruitment_download)
   ),
   
+    # seedclim recruitment
+  tar_target(
+    name = seedclim_recruitment_raw,
+    command =  read_delim("~/OneDrive - University of Bergen/Research/FunCaB/Data/primary/veg_recruitment/PM_rawdata_1112.csv", delim = ",", col_types = cols(.default = "c"))
+  ),
+
   # species corrections
 #  tar_target(
 #    name = species_corrections_raw,
