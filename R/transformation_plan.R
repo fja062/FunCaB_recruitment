@@ -68,8 +68,8 @@ transformation_plan <- list(
   
   # clean recruitment data
   tar_target(
-    name = recruitment,
-    command = recruitment_raw %>%
+    name = funcab_recruitment,
+    command = funcab_recruitment_raw %>%
       funcabization(., convert_to = "Funder") %>%
       make_fancy_data(., gridded_climate, fix_treatment = TRUE)
   ),
