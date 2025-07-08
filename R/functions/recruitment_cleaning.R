@@ -1,31 +1,32 @@
 # seedling data cleaning #
 
 # create dataframe of all turfs
-all_turfs <- comp2 %>% 
-  filter(treatment != "XC") %>% 
-  distinct(site = siteID, blockID, turfID) %>% 
-  crossing(round = c("1", "2", "3", "4"))
+all_turfs <- community |> 
+  filter(!fg_removed == "XC") |> 
+  distinct(siteID, blockID, plotID, fg_removed, temperature_level, precipitation_level, temperature, precipitation, fg_remaining) |> 
+  crossing(year = c(2018, 2019), round = c("early", "late")) |> 
+  mutate(round = case_when(
+    year == 2018 & round == "early" ~ 1,
+    year == 2018 & round == "late" ~ 2,
+    year == 2019 & round == "early" ~ 3,
+    year == 2019 & round == "late" ~ 4
+  ))
 
 
 
 # split and clean seedling counts
-seedling_counts <- recruitment %>% 
-  select(siteID, blockID, turfID, seedID, presence1:presence4, species) %>% 
-  pivot_longer(presence1:presence4,
-               names_to = c("category", "round"),
-               names_pattern = "(^.{0,8})([1-4])",
-               values_to = "count") %>% 
-  select(-category) %>% 
-  full_join(all_turfs) %>% 
-  mutate(count = coalesce(count, "0")) %>% # fill in missing zeros
-  mutate(count = case_when(
-    count %in% c("NF", "not found", "NA") ~ "0",
-    count %in% c("1?") ~"1",
-    is.na(count) ~ "0",
-    TRUE ~ count
-  ),
-  count = as.numeric(count)) %>% 
-  pivot_wider(names_from = round, values_from = count) %>% 
+funcab_recruitment |> 
+  full_join(all_turfs) |>  
+  mutate(presence = coalesce(presence, 0)) |> 
+  group_by(siteID, blockID, plotID, seedID) |> 
+  mutate(season = case_when(
+    round == 1 & presence > 0 ~ "spr_18",
+    (round == 2 & presence > 0 ) & (round == 1 & presence == 0) ~ "aut_18",
+    TRUE ~ "dummy"
+    
+  )) |> ungroup() |> distinct(season)
+  # fill in missing zeros
+  pivot_wider(names_from = round, values_from = presence) %>% 
   mutate(season = if_else(`1` > 0, "spr_18", NA),
          season = if_else(`2` > 0 & `1` == 0, "aut_18", season),
          season = if_else(`3` > 0 & `2` == 0 & `1` == 0, "spr_19", season),
@@ -36,9 +37,6 @@ seedling_counts <- recruitment %>%
   ungroup()
 # join onto complete turf list to catch turfs with zero seedlings
 
-turf_test <- all_turfs %>% 
-
-seedling_counts_complete <- full_join(seedling_counts, turf_test, by = c("siteID", "blockID", "turfID", "season", "treatment"))
 
 # create month, year and round variable
 seedling_counts_complete <- seedling_counts_complete %>% 
