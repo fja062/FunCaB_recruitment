@@ -66,12 +66,28 @@ transformation_plan <- list(
       make_fg_cover_coefficients()
   ),
   
-  # clean recruitment data
+  # clean funcab recruitment data
   tar_target(
     name = funcab_recruitment,
-    command = funcab_recruitment_raw %>%
+    command = 
+      # standardise dataset
+      funcab_recruitment_raw %>%
       funcabization(., convert_to = "Funder") %>%
-      make_fancy_data(., gridded_climate, fix_treatment = TRUE)
+      make_fancy_data(., gridded_climate, fix_treatment = TRUE) %>% 
+      clean_funcab_recruitment(., community) |>
+      # select controls and bare plots
+      filter(treatment %in% c("FGB", "C"))
+  ),
+
+    # clean seedclim recruitment data
+  tar_target(
+    name = seedclim_recruitment,
+    command = 
+      # standardise dataset
+      seedclim_recruitment_raw |> 
+      clean_seedclim_recruitment(., community)
+      #funcabization(., convert_to = "Funder") %>%
+      #make_fancy_data(., gridded_climate, fix_treatment = TRUE) %>% 
   ),
   
   # prep cover
