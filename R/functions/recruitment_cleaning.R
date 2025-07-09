@@ -89,8 +89,6 @@ data2 <- seedclim_recruitment_raw |>
          ) |> 
   mutate(treatment = if_else(treatment == "RTG", "gap", "intact"))
 
-
-
 # complete turf list
 rtc_turf_list <- data2 |> 
   distinct(siteID, blockID, plotID) |> 
@@ -99,8 +97,10 @@ rtc_turf_list <- data2 |>
   filter(!year == 2009 | !season == "early",
          !year == 2012 | !season == "late")
 
-# remove graminoid seedlings from analyses and assign IDs to seedlings without IDs
-rc_rtcSum <- rc_rtc %>% 
+
+
+data2 |>  
+  # clean species names and assign functional groups where missing
   mutate(species = trimws(species, which = "both"),
          species = gsub(" ", ".", species),
          functional_group = case_when(
@@ -112,55 +112,50 @@ rc_rtcSum <- rc_rtc %>%
            grepl("Poa", species) ~ "graminoid", 
            grepl("Luz", species) ~ "graminoid",
            TRUE ~ "forb"
-         )) %>% 
-  filter(!functional_group == "graminoid") %>%
+         ))  |>  
+# remove graminoid seedlings from analyses
+  tidylog::filter(!functional_group == "graminoid")  |> 
   #filter(!species %in% c("Destroyed", "Destroyed ", "missing", "DAMAGED")) %>% 
   mutate(species = gsub(".cf", "", species),
          species = gsub(".CF", "", species)) %>% 
+  #assign IDs to seedlings without IDs
   mutate(ID = case_when(
     is.na(ID) ~ paste0("ran-", floor(runif(nrow(is.na(.)), min = 2000, max = 5000))),
-    TRUE ~ ID)) %>% 
-  gather(spr_12, aut_11, spr_11, aut_10, spr_10, aut_09, key = season, value = seed, na.rm = TRUE)
-
-
-# recode seedling presence
-rc_rtcSum <- rc_rtcSum %>% 
-  mutate(seed = substr(seed, 1,1),
-         seed = case_when(
-           seed == "s" ~ "S",
-           seed == "H" ~ "S",
-           seed == "?" ~ "T",
-           seed == "C" ~ "S",
-           seed == "E" ~ "S",
-           seed == " " ~ "S",
-           seed == "1" ~ "S",
-           seed == "V" ~ "S",
-           TRUE ~ seed)) %>%
-  mutate(year = as.numeric(paste0("20", substr(season, 5,6))))
+    TRUE ~ ID))  |>  
+  pivot_longer(aut_09:spr_12, names_to = "season", values_to = "presence") |> 
+  #harmonise seedling indications
+  mutate(presence = substr(presence, 1,1),
+         presence = case_when(
+           presence == "s" ~ "S",
+           presence == "H" ~ "S",
+           presence == "?" ~ "T",
+           presence == "C" ~ "S",
+           presence == "E" ~ "S",
+           presence == " " ~ "S",
+           presence == "1" ~ "S",
+           presence == "V" ~ "S",
+           TRUE ~ presence))  |> 
+  #create year variable
+  #mutate(year = as.numeric(paste0("20", substr(season, 5,6))))
 
 
 # correct errors where seedlings come back from the dead 
-rtc_counts <- rc_rtcSum %>% 
-  distinct(siteID, blockID, turfID, treatment, ID, season, species, seed) %>% 
-  pivot_wider(names_from = season, values_from = seed) %>% 
-  mutate(aut_09 = coalesce(aut_09, "0"),
-         spr_10 = coalesce(spr_10, "0"),
-         aut_10 = coalesce(aut_10, "0"),
-         spr_11 = coalesce(spr_11, "0"),
-         aut_11 = coalesce(aut_11, "0"),
-         spr_12 = coalesce(spr_12, "0")
-  ) %>% 
-  mutate(aut_11 = case_when(aut_11 =="0" & spr_12 %in% c("T", "D") ~ "S",TRUE ~ aut_11),
+  distinct(siteID, blockID, plotID, treatment, ID, season, species, presence) |> 
+  pivot_wider(names_from = season, values_from = presence) |> 
+  # replace NAs with zeros
+  mutate(across(aut_09:spr_12, ~ coalesce(., "0")))  |>  
+  mutate(aut_11 = case_when(aut_11 =="0" & spr_12 %in% c("T", "D") ~ "S", TRUE ~ aut_11),
          spr_11 = case_when(spr_11 == "0" & aut_11 %in% c("T", "D") ~ "S", TRUE ~ spr_11),
          aut_10 = case_when(aut_10 == "0" & spr_11 %in% c("T", "D") ~ "S", TRUE ~ aut_10),
          spr_10 = case_when(spr_10 == "0" & aut_10 %in% c("T", "D") ~ "S", TRUE ~ spr_10)
-  ) %>%
+  )  |> 
+  # make seedling counts numeric
   mutate(across(.cols = contains("aut_")|contains("spr_"),
-                .fns = ~as.numeric(case_when(
+                .fns = ~ as.numeric(case_when(
                   . %in% c("T", "D") ~ 0,
                   . == "S" ~ 1,
                   TRUE ~ 0
-                )))) %>% 
+                ))))  |>  
   # fill in missing counts in 2-year gaps
   mutate(
     spr_10 = case_when(aut_09 == 1 & spr_10 == 0 & spr_11 == 1 ~ 1, TRUE ~ spr_10),
@@ -170,12 +165,11 @@ rtc_counts <- rc_rtcSum %>%
     spr_10 = case_when(aut_09 == 1 & spr_10 == 0 & aut_10 == 1 ~ 1, TRUE ~ spr_10),
     aut_10 = case_when(spr_10 == 1 & aut_10 == 0 & spr_11 == 1 ~ 1, TRUE ~ aut_10),
     spr_11 = case_when(aut_10 == 1 & spr_11 == 0 & aut_11 == 1 ~ 1, TRUE ~ spr_11),
-    aut_11 = case_when(spr_11 == 1 & aut_11 == 0 & spr_12 == 1 ~ 1, TRUE ~ aut_11))
+    aut_11 = case_when(spr_11 == 1 & aut_11 == 0 & spr_12 == 1 ~ 1, TRUE ~ aut_11)) |> 
 
 
 # calculate first occurrences of seedlings and remove 18 without observations
-rtc_counts <- rtc_counts %>% 
-  group_by(siteID, blockID, turfID, treatment, ID, species) %>% 
+  group_by(siteID, blockID, plotID, treatment, ID, species) %>% 
   mutate(season = if_else(aut_09 == 1, "aut_09", NA),
          season = if_else(spr_10 == 1 & aut_09 == 0, "spr_10", season),
          season = if_else(aut_10 == 1 & aut_09 == 0 & spr_10 == 0, "aut_10", season),
@@ -183,13 +177,12 @@ rtc_counts <- rtc_counts %>%
          season = if_else(aut_11 == 1 & aut_09 == 0 & spr_10 == 0 & aut_10 == 0 & spr_11 == 0, "aut_11", season),
          season = if_else(spr_12 == 1 & aut_09 == 0 & spr_10 == 0 & aut_10 == 0 & spr_11 == 0 & aut_11 == 0, "spr_12", season),
          count = 1
-  ) %>% 
-  filter(!is.na(season))
+  )  |>  
+  tidylog::filter(!is.na(season)) |> 
 
 # calculate seedling counts and sums
-rtc_counts <- rtc_counts %>% 
-  rowwise() %>% 
-  mutate(sum = sum(spr_12, aut_11, spr_11, aut_10, spr_10, aut_09)) %>% 
+  rowwise() |> 
+  mutate(sum = sum(spr_12, aut_11, spr_11, aut_10, spr_10, aut_09)) |> 
   ungroup()
 
 
