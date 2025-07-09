@@ -135,9 +135,6 @@ data2 |>
            presence == "1" ~ "S",
            presence == "V" ~ "S",
            TRUE ~ presence))  |> 
-  #create year variable
-  #mutate(year = as.numeric(paste0("20", substr(season, 5,6))))
-
 
 # correct errors where seedlings come back from the dead 
   distinct(siteID, blockID, plotID, treatment, ID, season, species, presence) |> 
@@ -183,20 +180,15 @@ data2 |>
 # calculate seedling counts and sums
   rowwise() |> 
   mutate(sum = sum(spr_12, aut_11, spr_11, aut_10, spr_10, aut_09)) |> 
-  ungroup()
+  ungroup() |> 
 
-
-# create year and date columns
-
-rtc_counts <- rtc_counts %>% 
-  mutate(year = as.numeric(paste0("20",substr(season, 5,6))), 
+# create year, month, season and date columns
+  mutate(season2 = season,
+         year = as.numeric(paste0("20",substr(season, 5,6))), 
          season = substr(season, 1, 3),
-         season = case_when(
-           season == "aut" ~ "late",
-           season == "spr" ~ "early",
-           TRUE ~ season
-         )) %>%
-  ungroup() %>% 
+         season = if_else(season == "aut", "late", "early")) |> 
+  #### fix this join!!!! 
+  tidylog::full_join(rtc_turf_list, by = c("siteID", "blockID", "plotID", "year", "season2" = "season", "treatment"))# |> 
   mutate(date = dmy(case_when(
     season == "late" & year == 2009 ~ "01-09-2009",
     season == "early" & year == 2010 ~ "01-07-2010", 
@@ -204,16 +196,18 @@ rtc_counts <- rtc_counts %>%
     season == "early" & year == 2011 ~ "01-07-2011", 
     season == "late" & year == 2011 ~ "01-09-2011", 
     season == "early" & year == 2012 ~ "01-07-2012")),
-    month = month(date),
-    treatment = factor(treatment, labels = c(RTC = "Intact", RTG = "Gap")))
-
-rtc_counts_join <- rtc_counts %>% 
-  select(siteID:species, season:sum)
+    month = month(date)) |> 
+  # remove season-specific count columns for join
+  select(-aut_09:spr_12) |> 
+  select(siteID:species, season:sum) |> 
 
 # attach to complete turf list
-rtc_counts_join <- full_join(rtc_counts, rtc_turf_list, by = c("siteID", "blockID", "turfID", "year", "season", "treatment"))
 
 
+  
+  
+  
+  #########
 ## join with SPEI and FunCaB recruitment
 seedling_counts_join <- seedling_counts_complete %>% 
   select(siteID, blockID, turfID, treatment, seedID, season, count, sum, date, year, month)
