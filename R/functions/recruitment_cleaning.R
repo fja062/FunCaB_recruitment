@@ -44,7 +44,7 @@ data
 
 ##############
 
-site_dict <- site_dictionary() |> 
+clean_seedclim_recruitment <- function(seedclim_recruitment_raw){site_dict <- site_dictionary() |> 
   select(old, new)
 
 data2 <- seedclim_recruitment_raw |> 
@@ -87,7 +87,7 @@ data2 <- seedclim_recruitment_raw |>
   mutate(blockID = paste0(plotID, blockID),
          plotID = paste0(blockID, treatment)
          ) |> 
-  mutate(treatment = if_else(treatment == "RTG", "Gap", "Intact"))
+  mutate(treatment = if_else(treatment == "RTG", "Gap", "Intact")) |> 
 
 # complete turf list
 #rtc_turf_list <- data2 |> 
@@ -100,7 +100,6 @@ data2 <- seedclim_recruitment_raw |>
 # ALL PLOTS are present in dataset - no need for join to full turf list
 
 
-data2 <- data2 |>  
 # attach to complete turf list -- now redundant
 #  tidylog::full_join(rtc_turf_list, by = c("siteID", "blockID", "plotID", "treatment")) |> 
   # clean species names and assign functional groups where missing
@@ -194,14 +193,14 @@ data2 <- data2 |>
     season == "early" & year == 2012 ~ "01-07-2012")),
     month = month(date)) |> 
   # remove season-specific count columns for join
-  select(-c(aut_09:spr_12))
+  select(-c(aut_09:spr_12)) |> 
+  ungroup()
+}
 
 
 
-  
-  
-  
-  #########
+
+#########
 ## join with SPEI and FunCaB recruitment
 seedling_counts_join <- seedling_counts_complete %>% 
   select(siteID, blockID, turfID, treatment, seedID, season, count, sum, date, year, month)
