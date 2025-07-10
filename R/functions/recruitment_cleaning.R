@@ -90,16 +90,19 @@ data2 <- seedclim_recruitment_raw |>
   mutate(treatment = if_else(treatment == "RTG", "Gap", "Intact"))
 
 # complete turf list
-rtc_turf_list <- data2 |> 
-  distinct(siteID, blockID, plotID, treatment) |> 
-  crossing(year = c(2009, 2010, 2011, 2012),
-           season = c("early", "late")) |>  
-  filter(!year == 2009 | !season == "early",
-         !year == 2012 | !season == "late")
+#rtc_turf_list <- data2 |> 
+#  distinct(siteID, blockID, plotID, treatment) #|> 
+#  crossing(year = c(2009, 2010, 2011, 2012),
+#           season = c("early", "late")) |>  
+#  filter(!year == 2009 | !season == "early",
+#         !year == 2012 | !season == "late")
+
+# ALL PLOTS are present in dataset - no need for join to full turf list
 
 
-
-data2 |>  
+data2 <- data2 |>  
+# attach to complete turf list -- now redundant
+#  tidylog::full_join(rtc_turf_list, by = c("siteID", "blockID", "plotID", "treatment")) |> 
   # clean species names and assign functional groups where missing
   mutate(species = trimws(species, which = "both"),
          species = gsub(" ", ".", species),
@@ -177,17 +180,11 @@ data2 |>
   )  |>  
   tidylog::filter(!is.na(season)) |> 
 
-# calculate seedling counts and sums
-  rowwise() |> 
-  mutate(sum = sum(spr_12, aut_11, spr_11, aut_10, spr_10, aut_09)) |> 
-  ungroup() |> 
-
 # create year, month, season and date columns
-  mutate(season2 = season,
+  mutate(first_occurrence = season,
          year = as.numeric(paste0("20",substr(season, 5,6))), 
          season = substr(season, 1, 3),
          season = if_else(season == "aut", "late", "early")) |> 
-  tidylog::full_join(rtc_turf_list, by = c("siteID", "blockID", "plotID", "year", "season", "treatment"))# |> 
   mutate(date = dmy(case_when(
     season == "late" & year == 2009 ~ "01-09-2009",
     season == "early" & year == 2010 ~ "01-07-2010", 
@@ -197,10 +194,8 @@ data2 |>
     season == "early" & year == 2012 ~ "01-07-2012")),
     month = month(date)) |> 
   # remove season-specific count columns for join
-  select(-aut_09:spr_12) |> 
-  select(siteID:species, season:sum) |> 
+  select(-c(aut_09:spr_12))
 
-# attach to complete turf list
 
 
   
