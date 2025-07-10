@@ -26,7 +26,7 @@ download_plan <- list(
   tar_target(
     name = funcab_recruitment_download,
     command =  get_file(node = "4c5v2",
-                        file = "FunCaB_clean_recruitment_2018-2019.csv",
+                        file = "FunCaB_raw_recruitment_2018-2019.csv",
                         path = "data",
                         remote_path = "4_Seedling_recruitment"),
     format = "file"
