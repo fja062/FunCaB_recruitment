@@ -44,7 +44,7 @@ data
 
 ##############
 
-site_dict <- site_dictionary() |> 
+clean_seedclim_recruitment <- function(seedclim_recruitment_raw){site_dict <- site_dictionary() |> 
   select(old, new)
 
 data2 <- seedclim_recruitment_raw |> 
@@ -87,19 +87,21 @@ data2 <- seedclim_recruitment_raw |>
   mutate(blockID = paste0(plotID, blockID),
          plotID = paste0(blockID, treatment)
          ) |> 
-  mutate(treatment = if_else(treatment == "RTG", "gap", "intact"))
+  mutate(treatment = if_else(treatment == "RTG", "Gap", "Intact")) |> 
 
 # complete turf list
-rtc_turf_list <- data2 |> 
-  distinct(siteID, blockID, plotID) |> 
-  crossing(year = c(2009, 2010, 2011, 2012),
-           season = c("early", "late")) |>  
-  filter(!year == 2009 | !season == "early",
-         !year == 2012 | !season == "late")
+#rtc_turf_list <- data2 |> 
+#  distinct(siteID, blockID, plotID, treatment) #|> 
+#  crossing(year = c(2009, 2010, 2011, 2012),
+#           season = c("early", "late")) |>  
+#  filter(!year == 2009 | !season == "early",
+#         !year == 2012 | !season == "late")
+
+# ALL PLOTS are present in dataset - no need for join to full turf list
 
 
-
-data2 |>  
+# attach to complete turf list -- now redundant
+#  tidylog::full_join(rtc_turf_list, by = c("siteID", "blockID", "plotID", "treatment")) |> 
   # clean species names and assign functional groups where missing
   mutate(species = trimws(species, which = "both"),
          species = gsub(" ", ".", species),
@@ -177,18 +179,11 @@ data2 |>
   )  |>  
   tidylog::filter(!is.na(season)) |> 
 
-# calculate seedling counts and sums
-  rowwise() |> 
-  mutate(sum = sum(spr_12, aut_11, spr_11, aut_10, spr_10, aut_09)) |> 
-  ungroup() |> 
-
 # create year, month, season and date columns
-  mutate(season2 = season,
+  mutate(first_occurrence = season,
          year = as.numeric(paste0("20",substr(season, 5,6))), 
          season = substr(season, 1, 3),
          season = if_else(season == "aut", "late", "early")) |> 
-  #### fix this join!!!! 
-  tidylog::full_join(rtc_turf_list, by = c("siteID", "blockID", "plotID", "year", "season2" = "season", "treatment"))# |> 
   mutate(date = dmy(case_when(
     season == "late" & year == 2009 ~ "01-09-2009",
     season == "early" & year == 2010 ~ "01-07-2010", 
@@ -198,84 +193,83 @@ data2 |>
     season == "early" & year == 2012 ~ "01-07-2012")),
     month = month(date)) |> 
   # remove season-specific count columns for join
-  select(-aut_09:spr_12) |> 
-  select(siteID:species, season:sum) |> 
-
-# attach to complete turf list
-
-
-  
-  
-  
-  #########
-## join with SPEI and FunCaB recruitment
-seedling_counts_join <- seedling_counts_complete %>% 
-  select(siteID, blockID, turfID, treatment, seedID, season, count, sum, date, year, month)
-
-# rename treatment variable and harmonise
-recruitment_0919 <- rtc_counts_join %>%
-  rename(seedID = ID) %>% 
-  select(-species) %>% 
-  full_join(seedling_counts_complete) %>%
-  mutate(month = case_when(
-    season == "early" ~ 7,
-    season == "late" ~ 8,
-    TRUE ~ month
-  ))
-
-
-recruitment_0919 <- recruitment_0919 %>%
-  mutate(count = coalesce(count, 0)) %>% 
-  group_by(siteID, blockID, turfID, season, month, year, treatment) %>% 
-  reframe(sumcount = sum(count))
-
-save(recruitment_0919, file = "~/OneDrive - University of Bergen/Research/FunCaB/Data/secondary/recruitment_0919_spei.RData")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-####### trait data ############
-# load seed mass trait data
-con <- src_sqlite(path = "~/OneDrive - University of Bergen/Research/FunCaB/seedclim.sqlite", create = FALSE)
-
-
-
-######### data preparation ###########
-seedMass <- tbl(con, "numeric_traits") %>% 
-  filter(trait == "seedMass") %>% 
-  collect()
-
-all_turfs <- all_turfs %>% 
-  rename("siteID" = "site") %>% 
-  mutate(round = case_when(
-    round %in% c("1", "3") ~ "early",
-    round %in% c("2", "4") ~ "late",
-    TRUE ~ round
-  ))
-
-turfDict <- recruitment_biomass_spei %>% 
-  #filter(fg_presence %in% c("FGB", "F", "G", "B", "C")) %>% 
-  distinct(siteID, blockID, Treatment, turfID, fg_presence, round, year) %>% 
-  full_join(all_turfs)
-
-
-# merge composition data with seed mass data
-seedcomp <- comp2 %>% 
-  filter(year > 2017) %>% 
-  left_join(seedMass) %>% 
-  group_by(siteID, blockID, turfID, treatment, year, vegetation_height, moss_height, total_bryophytes, total_forbs, total_graminoids, functional_group) %>% 
-  summarise(seedMass = weighted.mean(value, cover)) %>% 
+  select(-c(aut_09:spr_12)) |> 
   ungroup()
+}
 
+
+
+
+#########
+## join with SPEI and FunCaB recruitment
+#seedling_counts_join <- seedling_counts_complete %>% 
+#  select(siteID, blockID, turfID, treatment, seedID, season, count, sum, date, year, month)
+#
+## rename treatment variable and harmonise
+#recruitment_0919 <- rtc_counts_join %>%
+#  rename(seedID = ID) %>% 
+#  select(-species) %>% 
+#  full_join(seedling_counts_complete) %>%
+#  mutate(month = case_when(
+#    season == "early" ~ 7,
+#    season == "late" ~ 8,
+#    TRUE ~ month
+#  ))
+#
+#
+#recruitment_0919 <- recruitment_0919 %>%
+#  mutate(count = coalesce(count, 0)) %>% 
+#  group_by(siteID, blockID, turfID, season, month, year, treatment) %>% 
+#  reframe(sumcount = sum(count))
+#
+#save(recruitment_0919, file = "~/OneDrive - University of Bergen/Research/FunCaB/Data/secondary/recruitment_0919_spei.RData"#)
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+######## trait data ############
+## load seed mass trait data
+#con <- src_sqlite(path = "~/OneDrive - University of Bergen/Research/FunCaB/seedclim.sqlite", create = FALSE)
+#
+#
+#
+########## data preparation ###########
+#seedMass <- tbl(con, "numeric_traits") %>% 
+#  filter(trait == "seedMass") %>% 
+#  collect()
+#
+#all_turfs <- all_turfs %>% 
+#  rename("siteID" = "site") %>% 
+#  mutate(round = case_when(
+#    round %in% c("1", "3") ~ "early",
+#    round %in% c("2", "4") ~ "late",
+#    TRUE ~ round
+#  ))
+#
+#turfDict <- recruitment_biomass_spei %>% 
+#  #filter(fg_presence %in% c("FGB", "F", "G", "B", "C")) %>% 
+#  distinct(siteID, blockID, Treatment, turfID, fg_presence, round, year) %>% 
+#  full_join(all_turfs)
+#
+#
+## merge composition data with seed mass data
+#seedcomp <- comp2 %>% 
+#  filter(year > 2017) %>% 
+#  left_join(seedMass) %>% 
+#  group_by(siteID, blockID, turfID, treatment, year, vegetation_height, moss_height, total_bryophytes, total_forbs, #total_graminoids, functional_group) %>% 
+#  summarise(seedMass = weighted.mean(value, cover)) %>% 
+#  ungroup()
+#
+#

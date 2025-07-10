@@ -76,7 +76,9 @@ transformation_plan <- list(
       make_fancy_data(., gridded_climate, fix_treatment = TRUE) %>% 
       clean_funcab_recruitment(., community) |>
       # select controls and bare plots
-      filter(treatment %in% c("FGB", "C"))
+      filter(fg_removed %in% c("FGB", "C")) |> 
+      #create treatment variable
+      mutate(treatment = if_else(fg_removed == "FGB", "Gap", "Intact"))
   ),
 
     # clean seedclim recruitment data
@@ -85,9 +87,9 @@ transformation_plan <- list(
     command = 
       # standardise dataset
       seedclim_recruitment_raw |> 
-      clean_seedclim_recruitment(., community)
+      clean_seedclim_recruitment() %>%
       #funcabization(., convert_to = "Funder") %>%
-      #make_fancy_data(., gridded_climate, fix_treatment = TRUE) %>% 
+      make_fancy_data(., gridded_climate, fix_treatment = TRUE)
   ),
   
   # prep cover
