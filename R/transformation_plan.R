@@ -85,9 +85,9 @@ transformation_plan <- list(
     command = 
       # standardise dataset
       seedclim_recruitment_raw |> 
-      clean_seedclim_recruitment(., community)
+      clean_seedclim_recruitment() %>%
       #funcabization(., convert_to = "Funder") %>%
-      #make_fancy_data(., gridded_climate, fix_treatment = TRUE) %>% 
+      make_fancy_data(., gridded_climate, fix_treatment = TRUE)
   ),
   
   # prep cover
