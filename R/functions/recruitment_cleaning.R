@@ -87,11 +87,11 @@ data2 <- seedclim_recruitment_raw |>
   mutate(blockID = paste0(plotID, blockID),
          plotID = paste0(blockID, treatment)
          ) |> 
-  mutate(treatment = if_else(treatment == "RTG", "gap", "intact"))
+  mutate(treatment = if_else(treatment == "RTG", "Gap", "Intact"))
 
 # complete turf list
 rtc_turf_list <- data2 |> 
-  distinct(siteID, blockID, plotID) |> 
+  distinct(siteID, blockID, plotID, treatment) |> 
   crossing(year = c(2009, 2010, 2011, 2012),
            season = c("early", "late")) |>  
   filter(!year == 2009 | !season == "early",
@@ -187,8 +187,7 @@ data2 |>
          year = as.numeric(paste0("20",substr(season, 5,6))), 
          season = substr(season, 1, 3),
          season = if_else(season == "aut", "late", "early")) |> 
-  #### fix this join!!!! 
-  tidylog::full_join(rtc_turf_list, by = c("siteID", "blockID", "plotID", "year", "season2" = "season", "treatment"))# |> 
+  tidylog::full_join(rtc_turf_list, by = c("siteID", "blockID", "plotID", "year", "season", "treatment"))# |> 
   mutate(date = dmy(case_when(
     season == "late" & year == 2009 ~ "01-09-2009",
     season == "early" & year == 2010 ~ "01-07-2010", 
