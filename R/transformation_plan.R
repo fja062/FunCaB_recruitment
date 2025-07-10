@@ -79,7 +79,9 @@ transformation_plan <- list(
       # select controls and bare plots
       filter(fg_removed %in% c("FGB", "C")) |> 
       #create treatment variable
-      mutate(treatment = if_else(fg_removed == "FGB", "Gap", "Intact"))
+      mutate(treatment = if_else(fg_removed == "FGB", "Gap", "Intact")) |> 
+      select(-c(x:comment)) |> 
+      rename(count = presence)
   ),
 
     # clean seedclim recruitment data
@@ -90,7 +92,8 @@ transformation_plan <- list(
       seedclim_recruitment_raw |> 
       clean_seedclim_recruitment() %>%
       #funcabization(., convert_to = "Funder") %>%
-      make_fancy_data(., gridded_climate, fix_treatment = TRUE)
+      make_fancy_data(., gridded_climate, fix_treatment = TRUE) |> 
+      rename(seedID = ID)
   ),
 
       # join funcab and seedclim recruitment data
@@ -98,7 +101,8 @@ transformation_plan <- list(
     name = combined_recruitment,
     command = 
       # standardise dataset
-      seedclim_recruitment_raw 
+      seedclim_recruitment |> 
+      tidylog::full_join(funcab_recruitment)
       #funcabization(., convert_to = "Funder") %>%
       #make_fancy_data(., gridded_climate, fix_treatment = TRUE)
   ),
