@@ -1,0 +1,3 @@
+coacross <- function(...) {
+  coalesce(!!!across(...))
+}
