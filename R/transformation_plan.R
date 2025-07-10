@@ -71,7 +71,8 @@ transformation_plan <- list(
     name = funcab_recruitment,
     command = 
       # standardise dataset
-      funcab_recruitment_raw %>%
+      funcab_recruitment_raw |> 
+      prepare_funcab_recruitment() %>%
       funcabization(., convert_to = "Funder") %>%
       make_fancy_data(., gridded_climate, fix_treatment = TRUE) %>% 
       clean_funcab_recruitment(., community) |>
@@ -97,10 +98,9 @@ transformation_plan <- list(
     name = combined_recruitment,
     command = 
       # standardise dataset
-      seedclim_recruitment_raw |> 
-      clean_seedclim_recruitment() %>%
+      seedclim_recruitment_raw 
       #funcabization(., convert_to = "Funder") %>%
-      make_fancy_data(., gridded_climate, fix_treatment = TRUE)
+      #make_fancy_data(., gridded_climate, fix_treatment = TRUE)
   ),
   
   # prep cover
