@@ -3,7 +3,7 @@ clean_funcab_recruitment <- function(data, community){
 # create dataframe of all turfs
 all_turfs <- community |> 
   filter(!fg_removed == "XC") |> 
-  distinct(siteID, blockID, plotID, fg_removed, temperature_level, precipitation_level, temperature, precipitation, fg_remaining) |> 
+  distinct(siteID, blockID, plotID, fg_removed) |> 
   crossing(year = c(2018, 2019), round = c("early", "late")) |> 
   mutate(round = case_when(
     year == 2018 & round == "early" ~ 1,
@@ -16,7 +16,7 @@ all_turfs <- community |>
 
 # split and clean seedling counts
 data <- data |> 
-  full_join(all_turfs) |>  
+  tidylog::full_join(all_turfs) |>  
   mutate(presence = coalesce(presence, 0)) |> 
 #  group_by(siteID, blockID, plotID, seedID) |> 
 #  # fill in missing zeros
