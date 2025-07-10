@@ -1,4 +1,116 @@
 # funcab seedling data cleaning #
+prepare_funcab_recruitment <- function(funcab_recruitment_raw){
+
+recruitment <- funcab_recruitment_raw %>%
+  mutate(site = recode(site,
+                       "Ovstedal" = "Ovstedalen",
+                       "Skjellingahaugen" = "Skjelingahaugen",
+                       "Ulvhaugen" = "Ulvehaugen")) |> 
+
+# generate random seedling IDs for missing seedIDs
+  filter(is.na(NS),
+         !Comment %in% c("out of plot"),
+         !is.na(presence1) | !is.na(presence2) | !is.na(presence3) |!is.na(presence4)) %>%
+  mutate(seedID = case_when(
+    is.na(seedID) ~ paste0("r", row_number(), "_", turfID),
+    TRUE ~ seedID))
+
+# seedlings with duplicate IDs
+# should be empty
+recruitment %>%
+  group_by(turfID, seedID) %>%
+  filter(n() > 1) %>%
+  distinct(turfID, seedID)
+
+
+recruitment1 <- recruitment %>%
+  mutate(seedID = paste0(seedID,"_", turfID),
+         presence1 = as.character(presence1)) %>%
+  pivot_longer(cols = unID:Viola,
+               names_to = "species",
+               values_to = "temp_present") %>%
+  mutate(temp_present = as.character(temp_present),
+         temp_present = if_else(!is.na(temp_present), species, temp_present)) |> 
+  pivot_wider(names_from = species, values_from = temp_present) |> 
+  # no duplicates here
+  # group_by(site, blockID, treatment, turfID, seedID, species) %>%
+  # summarise(n = n()) %>% filter(n > 1)
+  rowwise() |> 
+  # coerce species into one column and delete individual species columns
+  mutate(species = coacross(unID:Viola)) |> 
+  select(-c(unID:Viola)) |> 
+  pivot_longer(cols = matches("\\d"),
+               names_to = c(".value", "round"),
+               names_pattern = "(.*)(\\d$)") |> 
+  # fixing one wrongly formatted date
+  mutate(date = if_else(date == "8/82019", "8/8/2019", date)) %>%
+  mutate(date = dmy(date),
+         year = if_else(round %in% c(1, 2), 2018, 2019),
+         round = as.numeric(round)
+  ) %>%
+  select(year, date, siteID = site, blockID, plotID = turfID, treatment, seedID, round, species, presence, x, y, recorder = Obs, comment = Comment, Tttreat) %>%
+  mutate(presence = case_when(
+    presence %in% c("NF", "not found") ~ "0",
+    presence %in% c("1?") ~"1",
+    #presence %in% c("225") ~"25",
+    is.na(presence) ~ "0",
+    TRUE ~ presence
+  ),
+  presence = as.numeric(presence)) |> 
+  tidylog::filter(!sum(presence) < 1)
+
+
+
+# fix species
+recruitment1 <- recruitment1 %>%
+  mutate(species = str_replace(species, "_", "."),
+         species = recode(species,
+                          "Anem.sp" = "Ane.sp",
+                          "Bellis" = "Bel.sp",
+                          "Betula" = "Bet.sp",
+                          "Epil.sp" = "Epi.sp",
+                          "Galium" = "Gal.sp",
+                          "Hier.sp" = "Hie.sp",
+                          "Leon.sp" = "Leo.sp",
+                          "Leuc.sp" = "Leu.sp",
+                          "Oma" = "Oma.sp",
+                          "Ranu.sp" = "Ran.sp",
+                          "Rume.sp" = "Rum.sp",
+                          "Stel.sp" = "Ste.sp",
+                          "Tara.sp" = "Tar.sp",
+                          "Trif.sp" = "Tri.sp",
+                          "unID" = "NID.seedling",
+                          "Veronica" = "Ver.sp",
+                          "Gal sax" = "Gal.sax",
+                          "Viola" = "Vio.sp"))
+
+# make multiple seedlings into separate observation and add unique seedID
+# check if this sum is the same as uncount
+#recruitment1 %>% filter(presence > 1) %>% summarise(sum(presence))
+new_seedlings19 <- uncount(data = recruitment1 %>%
+                             filter(presence > 1), weights = presence) %>%
+  mutate(seedID = paste0("s", row_number(), "_", plotID))
+
+# load TTC turf dictionary
+dictionary_TTC_turf <- dict_TTC_turf()
+
+recruitment2 <- recruitment1 %>%
+  filter(presence < 2) %>%
+  bind_rows(new_seedlings19) %>%
+  # fix turfID
+  tidylog::left_join(dictionary_TTC_turf, by = "plotID") %>%
+  rename(turfID = TTtreat) %>%
+  select(-Tttreat) %>%
+  mutate(blockID = paste0(substr(siteID, 1, 3), blockID),
+         functional_group = "forb") %>%
+  # fix comment and coordinates
+  mutate(y = if_else(y == "205/105", "205", y),
+         y = as.numeric(y),
+         comment = if_else(x > 250 | y > 250, "coordinate outside plot", comment))
+}
+
+
+
 clean_funcab_recruitment <- function(data, community){
 # create dataframe of all turfs
 all_turfs <- community |> 
@@ -12,10 +124,8 @@ all_turfs <- community |>
     year == 2019 & round == "late" ~ 4
   ))
 
-
-
 # split and clean seedling counts
-data <- data |> 
+data |> 
   tidylog::full_join(all_turfs) |>  
   mutate(presence = coalesce(presence, 0)) |> 
 #  group_by(siteID, blockID, plotID, seedID) |> 
@@ -35,7 +145,6 @@ data <- data |>
 # create month variable
   mutate(month = month(date))
 
-data
 }
 
 
