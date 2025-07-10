@@ -76,7 +76,9 @@ transformation_plan <- list(
       make_fancy_data(., gridded_climate, fix_treatment = TRUE) %>% 
       clean_funcab_recruitment(., community) |>
       # select controls and bare plots
-      filter(treatment %in% c("FGB", "C"))
+      filter(fg_removed %in% c("FGB", "C")) |> 
+      #create treatment variable
+      mutate(treatment = if_else(fg_removed == "FGB", "Gap", "Intact"))
   ),
 
     # clean seedclim recruitment data
