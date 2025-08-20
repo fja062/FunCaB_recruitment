@@ -124,22 +124,29 @@ all_turfs <- community |>
     year == 2019 & round == "late" ~ 4
   ))
 
+# extract seedling IDs, dates and their corresponding species
+speciesID <- inprog |> distinct(date, year, round, seedID, species)
+
 # split and clean seedling counts
-data |> 
+#data |> 
+inprog |> 
   tidylog::full_join(all_turfs) |>  
+  # ALL PLOTS are present in dataset - no actual need for join to full turf list
   mutate(presence = coalesce(presence, 0)) |> 
-#  group_by(siteID, blockID, plotID, seedID) |> 
+  # remove coordinates
+  select(-x, -y, -species, -recorder, -date, -year) |> 
+  group_by(siteID, blockID, plotID, seedID) |> 
 #  # fill in missing zeros
-#  pivot_wider(names_from = round, values_from = presence) %>% 
-#  mutate(season = if_else(`1` > 0, "spr_18", NA),
-#         season = if_else(`2` > 0 & `1` == 0, "aut_18", season),
-#         season = if_else(`3` > 0 & `2` == 0 & `1` == 0, "spr_19", season),
-#         season = if_else(`4` > 0 & `3` == 0 & `2` == 0 & `1` == 0, "aut_19", season),
-#         count = if_else(!is.na(season), 1, 0)) %>% 
-#  rowwise() %>% 
-#  mutate(sum = sum(`1`, `2`, `3`, `4`, na.rm = TRUE)) %>% 
-#  ungroup()
-# join onto complete turf list to catch turfs with zero seedlings
+  tidylog::pivot_wider(names_from = round, values_from = presence)  |>  
+  mutate(season = if_else(`1` > 0, "spr_18", NA),
+         season = if_else(`2` > 0 & `1` == 0, "aut_18", season),
+         season = if_else(`3` > 0 & `2` == 0 & `1` == 0, "spr_19", season),
+         season = if_else(`4` > 0 & `3` == 0 & `2` == 0 & `1` == 0, "aut_19", season),
+         count = 1,
+         survival_duration = rowSums(across(`1`:`4`))
+         ) |>  
+  ungroup() |> 
+  tidylog::filter(is.na(season))
 
 
 # create month variable
@@ -151,9 +158,13 @@ data |>
 
 
 
-##############
+##################
 
-clean_seedclim_recruitment <- function(seedclim_recruitment_raw){site_dict <- site_dictionary() |> 
+# seedclim recruitment cleaning
+
+clean_seedclim_recruitment <- function(seedclim_recruitment_raw){
+  # extract site names
+  site_dict <- site_dictionary() |> 
   select(old, new)
 
 data2 <- seedclim_recruitment_raw |> 
@@ -248,7 +259,7 @@ data2 <- seedclim_recruitment_raw |>
            TRUE ~ presence))  |> 
 
 # correct errors where seedlings come back from the dead 
-  distinct(siteID, blockID, plotID, treatment, ID, season, species, presence) |> 
+  tidylog::distinct(siteID, blockID, plotID, treatment, ID, season, species, presence) |> 
   pivot_wider(names_from = season, values_from = presence) |> 
   # replace NAs with zeros
   mutate(across(aut_09:spr_12, ~ coalesce(., "0")))  |>  
@@ -284,7 +295,8 @@ data2 <- seedclim_recruitment_raw |>
          season = if_else(spr_11 == 1 & aut_09 == 0 & spr_10 == 0 & aut_10 == 0, "spr_11", season),
          season = if_else(aut_11 == 1 & aut_09 == 0 & spr_10 == 0 & aut_10 == 0 & spr_11 == 0, "aut_11", season),
          season = if_else(spr_12 == 1 & aut_09 == 0 & spr_10 == 0 & aut_10 == 0 & spr_11 == 0 & aut_11 == 0, "spr_12", season),
-         count = 1
+         count = 1,
+         survival_duration = rowSums(across(aut_09:spr_12))
   )  |>  
   tidylog::filter(!is.na(season)) |> 
 
