@@ -131,11 +131,14 @@ speciesID <- inprog |> distinct(date, year, round, seedID, species)
 #data |> 
 inprog |> 
   tidylog::full_join(all_turfs) |>  
+  
   # ALL PLOTS are present in dataset - no actual need for join to full turf list
   mutate(presence = coalesce(presence, 0)) |> 
+  
   # remove coordinates
   select(-x, -y, -species, -recorder, -date, -year) |> 
   group_by(siteID, blockID, plotID, seedID) |> 
+  
 #  # fill in missing zeros
   tidylog::pivot_wider(names_from = round, values_from = presence)  |>  
   mutate(season = if_else(`1` > 0, "spr_18", NA),
@@ -146,8 +149,14 @@ inprog |>
          survival_duration = rowSums(across(`1`:`4`))
          ) |>  
   ungroup() |> 
-  tidylog::filter(is.na(season))
-
+  
+  # remove seedlings with no season associated
+  tidylog::filter(!is.na(season)) |> 
+  
+  # gather rounds and join dates and species back to the data
+  tidylog::pivot_longer(cols = c(`1`:`4`), names_to = "round", values_to = "presence") |> 
+  mutate(round = as.numeric(round)) |> 
+  tidylog::left_join(speciesID, by = join_by(seedID, round)) |> view()
 
 # create month variable
   mutate(month = month(date))
