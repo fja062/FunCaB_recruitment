@@ -80,7 +80,7 @@ transformation_plan <- list(
       filter(fg_removed %in% c("FGB", "C")) |> 
       #create treatment variable
       mutate(treatment = if_else(fg_removed == "FGB", "Gap", "Intact")) |> 
-      select(-c(x:comment)) |> 
+      select(-comment) |> 
       rename(count = presence)
   ),
 
