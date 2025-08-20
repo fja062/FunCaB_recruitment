@@ -1,7 +1,7 @@
 # funcab seedling data cleaning #
 prepare_funcab_recruitment <- function(funcab_recruitment_raw){
 
-recruitment <- funcab_recruitment_raw %>%
+recruitment <- funcab_recruitment_raw  |> 
   mutate(site = recode(site,
                        "Ovstedal" = "Ovstedalen",
                        "Skjellingahaugen" = "Skjelingahaugen",
@@ -10,9 +10,9 @@ recruitment <- funcab_recruitment_raw %>%
 # generate random seedling IDs for missing seedIDs
   filter(is.na(NS),
          !Comment %in% c("out of plot"),
-         !is.na(presence1) | !is.na(presence2) | !is.na(presence3) |!is.na(presence4)) %>%
+         !is.na(presence1) | !is.na(presence2) | !is.na(presence3) |!is.na(presence4)) |> 
   mutate(seedID = case_when(
-    is.na(seedID) ~ paste0("r", row_number(), "_", turfID),
+    is.na(seedID) ~ paste0("ran", row_number()),
     TRUE ~ seedID))
 
 # seedlings with duplicate IDs
@@ -57,7 +57,9 @@ recruitment1 <- recruitment %>%
     TRUE ~ presence
   ),
   presence = as.numeric(presence)) |> 
-  tidylog::filter(!sum(presence) < 1)
+  group_by(plotID) |> 
+  tidylog::filter(!sum(presence) < 1) |> 
+  ungroup()
 
 
 
@@ -87,9 +89,11 @@ recruitment1 <- recruitment1 %>%
 # make multiple seedlings into separate observation and add unique seedID
 # check if this sum is the same as uncount
 #recruitment1 %>% filter(presence > 1) %>% summarise(sum(presence))
-new_seedlings19 <- uncount(data = recruitment1 %>%
+# YES
+new_seedlings19 <- uncount(data = recruitment1  |> 
                              filter(presence > 1), weights = presence) %>%
-  mutate(seedID = paste0("s", row_number(), "_", plotID))
+  mutate(seedID = paste0("s", row_number(), "_", plotID)) |> 
+  mutate(presence = 1)
 
 # load TTC turf dictionary
 dictionary_TTC_turf <- dict_TTC_turf()
@@ -125,11 +129,10 @@ all_turfs <- community |>
   ))
 
 # extract seedling IDs, dates and their corresponding species
-speciesID <- inprog |> distinct(date, year, round, seedID, species)
+speciesID <- data |> distinct(date, year, round, seedID, species)
 
 # split and clean seedling counts
-#data |> 
-inprog |> 
+data |> 
   tidylog::full_join(all_turfs) |>  
   
   # ALL PLOTS are present in dataset - no actual need for join to full turf list
@@ -145,7 +148,6 @@ inprog |>
          season = if_else(`2` > 0 & `1` == 0, "aut_18", season),
          season = if_else(`3` > 0 & `2` == 0 & `1` == 0, "spr_19", season),
          season = if_else(`4` > 0 & `3` == 0 & `2` == 0 & `1` == 0, "aut_19", season),
-         count = 1,
          survival_duration = rowSums(across(`1`:`4`))
          ) |>  
   ungroup() |> 
@@ -156,7 +158,7 @@ inprog |>
   # gather rounds and join dates and species back to the data
   tidylog::pivot_longer(cols = c(`1`:`4`), names_to = "round", values_to = "presence") |> 
   mutate(round = as.numeric(round)) |> 
-  tidylog::left_join(speciesID, by = join_by(seedID, round)) |> view()
+  tidylog::left_join(speciesID, by = join_by(seedID, round)) |>
 
 # create month variable
   mutate(month = month(date))
