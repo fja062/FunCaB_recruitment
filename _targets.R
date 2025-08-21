@@ -20,8 +20,8 @@ tar_source(files = "R")
 # Replace the target list below with your own:
 list(
   download_plan,
-  transformation_plan#,
-  #analysis_plan,
+  transformation_plan,
+  analysis_plan#,
   #figure_plan,
   #manuscript_plan
 )

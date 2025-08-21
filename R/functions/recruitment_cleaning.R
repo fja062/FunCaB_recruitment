@@ -7,13 +7,13 @@ recruitment <- funcab_recruitment_raw  |>
                        "Skjellingahaugen" = "Skjelingahaugen",
                        "Ulvhaugen" = "Ulvehaugen")) |> 
 
-# generate random seedling IDs for missing seedIDs
+  # filter out NAs and seedlings that are not seedlings.
   filter(is.na(NS),
          !Comment %in% c("out of plot"),
-         !is.na(presence1) | !is.na(presence2) | !is.na(presence3) |!is.na(presence4)) |> 
-  mutate(seedID = case_when(
-    is.na(seedID) ~ paste0("ran", row_number()),
-    TRUE ~ seedID))
+         !is.na(presence1) | !is.na(presence2) | !is.na(presence3) |!is.na(presence4)) |>
+  
+# generate random seedling IDs for missing seedIDs
+  mutate(seedID = if_else(is.na(seedID), paste0("ran", row_number()), seedID))
 
 # seedlings with duplicate IDs
 # should be empty
@@ -42,6 +42,7 @@ recruitment1 <- recruitment %>%
   pivot_longer(cols = matches("\\d"),
                names_to = c(".value", "round"),
                names_pattern = "(.*)(\\d$)") |> 
+  
   # fixing one wrongly formatted date
   mutate(date = if_else(date == "8/82019", "8/8/2019", date)) %>%
   mutate(date = dmy(date),
@@ -93,14 +94,22 @@ recruitment1 <- recruitment1 %>%
 new_seedlings19 <- uncount(data = recruitment1  |> 
                              filter(presence > 1), weights = presence) %>%
   mutate(seedID = paste0("s", row_number(), "_", plotID)) |> 
-  mutate(presence = 1)
+  crossing(test = c(1:4)) |> 
+  mutate(presence = if_else(test == 4, 1, 0)) |>
+  select(-round) |> 
+  rename(round = test)
 
+new_seedlings19_names <- recruitment1 |> 
+  filter(presence > 1) |> 
+  distinct(seedID)
 # load TTC turf dictionary
 dictionary_TTC_turf <- dict_TTC_turf()
 
-recruitment2 <- recruitment1 %>%
-  filter(presence < 2) %>%
-  bind_rows(new_seedlings19) %>%
+recruitment2 <- recruitment1  |> 
+  filter(presence < 2)  |> 
+  bind_rows(new_seedlings19)  |> 
+  # filter out seedIDs from old new_seedlings19 names to avoid seedlings with missing round 4 data
+  tidylog::anti_join(new_seedlings19_names) |> 
   # fix turfID
   tidylog::left_join(dictionary_TTC_turf, by = "plotID") %>%
   rename(turfID = TTtreat) %>%
@@ -110,7 +119,10 @@ recruitment2 <- recruitment1 %>%
   # fix comment and coordinates
   mutate(y = if_else(y == "205/105", "205", y),
          y = as.numeric(y),
-         comment = if_else(x > 250 | y > 250, "coordinate outside plot", comment))
+         comment = if_else(x > 250 | y > 250, "coordinate outside plot", comment)) |> 
+  
+  # remove rows with no seedID
+  tidylog::filter(!is.na(seedID))
 }
 
 
@@ -129,7 +141,15 @@ all_turfs <- community |>
   ))
 
 # extract seedling IDs, dates and their corresponding species
-speciesID <- data |> distinct(date, year, round, seedID, species)
+speciesID <- data |> distinct(seedID, species)
+dates <- data |> distinct(date, year, round, seedID) |> 
+  mutate(first_occurrence = case_when(
+    round == 1 ~ "spr_18",
+    round == 2 ~ "aut_18",
+    round == 3 ~ "spr_19",
+    round == 4 ~ "aut_19",
+  )) |> 
+  select(-round)
 
 # split and clean seedling counts
 data |> 
@@ -140,28 +160,35 @@ data |>
   
   # remove coordinates
   select(-x, -y, -species, -recorder, -date, -year) |> 
-  group_by(siteID, blockID, plotID, seedID) |> 
   
-#  # fill in missing zeros
+#  # calculate first occurrences of seedlings
+  group_by(siteID, blockID, plotID, seedID) |> 
   tidylog::pivot_wider(names_from = round, values_from = presence)  |>  
-  mutate(season = if_else(`1` > 0, "spr_18", NA),
-         season = if_else(`2` > 0 & `1` == 0, "aut_18", season),
-         season = if_else(`3` > 0 & `2` == 0 & `1` == 0, "spr_19", season),
-         season = if_else(`4` > 0 & `3` == 0 & `2` == 0 & `1` == 0, "aut_19", season),
-         survival_duration = rowSums(across(`1`:`4`))
+  mutate(first_occurrence = if_else(`1` > 0, "spr_18", NA),
+         first_occurrence = if_else(`2` > 0 & `1` == 0, "aut_18", first_occurrence),
+         first_occurrence = if_else(`3` > 0 & `2` == 0 & `1` == 0, "spr_19", first_occurrence),
+         first_occurrence = if_else(`4` > 0 & `3` == 0 & `2` == 0 & `1` == 0, "aut_19", first_occurrence),
+         survival_duration = rowSums(across(`1`:`4`)),
+         count = 1
          ) |>  
   ungroup() |> 
   
   # remove seedlings with no season associated
-  tidylog::filter(!is.na(season)) |> 
+  tidylog::filter(!is.na(first_occurrence), !first_occurrence == 0) |> 
   
-  # gather rounds and join dates and species back to the data
-  tidylog::pivot_longer(cols = c(`1`:`4`), names_to = "round", values_to = "presence") |> 
-  mutate(round = as.numeric(round)) |> 
-  tidylog::left_join(speciesID, by = join_by(seedID, round)) |>
+  # add species data
+  tidylog::left_join(speciesID, by = join_by(seedID)) |>
+
+  # add date data
+  tidylog::left_join(dates, by = join_by(seedID, first_occurrence)) |> 
 
 # create month variable
-  mutate(month = month(date))
+  mutate(month = month(date)) |> 
+  
+  # recode season to match seedclim 
+  mutate(season = if_else(grepl("spr", first_occurrence), "early", "late")) |> 
+  
+  select(-`1`, -`2`, -`3`, -`4`)
 
 }
 

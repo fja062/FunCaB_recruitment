@@ -79,9 +79,10 @@ transformation_plan <- list(
       # select controls and bare plots
       filter(fg_removed %in% c("FGB", "C")) |> 
       #create treatment variable
-      mutate(treatment = if_else(fg_removed == "FGB", "Gap", "Intact")) |> 
-      select(-comment) |> 
-      rename(count = presence)
+      mutate(fg_removed = if_else(fg_removed == "FGB", "Gap", "Intact")) |> 
+      select(-comment, -functional_group) |> 
+      # prep for merge with seedclim data
+      mutate(plotID = if_else(!is.na(turfID), paste(blockID,"RTC", sep = ""), plotID))
   ),
 
     # clean seedclim recruitment data
@@ -102,7 +103,10 @@ transformation_plan <- list(
     command = 
       # standardise dataset
       seedclim_recruitment |> 
-      tidylog::full_join(funcab_recruitment)
+      tidylog::full_join(funcab_recruitment) |> 
+      group_by(siteID, blockID, plotID, season, year) |> 
+      mutate(count = sum(count)) |> 
+      ungroup()
       #funcabization(., convert_to = "Funder") %>%
       #make_fancy_data(., gridded_climate, fix_treatment = TRUE)
   ),
