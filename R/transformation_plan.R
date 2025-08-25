@@ -107,7 +107,15 @@ transformation_plan <- list(
       group_by(siteID, blockID, plotID, season, year) |> 
       mutate(count = sum(count)) |> 
       ungroup() |> 
-      left_join(spei_raw |>  select(-season, -date), by = join_by(siteID, year, month))
+      # impute missing month values
+      group_by(siteID, season, year) |> 
+      mutate(month = if_else(season == "early", 7, month),
+             month = if_else(is.na(month), first(month), month),
+             month = if_else(is.na(month), last(month), month)) |> 
+      ungroup() |> 
+      select(-date) |> 
+      # join to SPEI data
+      tidylog::left_join(spei_raw |>  select(-season, -date), by = join_by(siteID, year, month))
       #funcabization(., convert_to = "Funder") %>%
       #make_fancy_data(., gridded_climate, fix_treatment = TRUE)
   ),
@@ -134,7 +142,16 @@ transformation_plan <- list(
       # remove last duplicate
       filter(!c(year == 2019 & plotID == "Alr3C" & total_bryophytes == 2))
     
+  ),
+  
+  #merge biomass with community
+  tar_target(
+    name = remaining_biomass_merged,
+    command = merge_community_biomass(community, standing_biomass)
   )
+  
+
+
   
 
   
