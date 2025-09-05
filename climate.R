@@ -44,7 +44,7 @@ temperature_site <- read_csv("~/Documents/research/FunCaB/climate/data/VCG_clean
   group_by(mdate, year, month, siteID,logger) %>% 
   summarise(temp_max = mean(temp_max, na.rm = TRUE),
             temp_min = mean(temp_min, na.rm = TRUE),
-            temp_mean = mean(value, na.rm = TRUE))
+            temp_mean = mean(value, na.rm = TRUE), .groups = "drop")
 
 maxtemp <- temperature_site %>%
   ungroup() %>%
@@ -235,6 +235,7 @@ spei_temp_precip_sites <- spei_sites %>%
 save(spei_sites, file = "~/OneDrive - University of Bergen/research/FunCaB/Data/secondary/spei_20092019.RData")
 
 save(spei_temp_precip_sites, file = "~/OneDrive - University of Bergen/research/FunCaB/Data/secondary/spei_t_sm_20092019.RData")
+write_csv(spei_temp_precip_sites, file = "~/OneDrive - University of Bergen/research/FunCaB/Data/secondary/spei_t_sm_20092019.csv")
 
 
 

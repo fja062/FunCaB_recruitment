@@ -106,9 +106,24 @@ transformation_plan <- list(
       tidylog::full_join(funcab_recruitment) |> 
       group_by(siteID, blockID, plotID, season, year) |> 
       mutate(count = sum(count)) |> 
-      ungroup()
+      ungroup() |> 
+      # impute missing month values
+      group_by(siteID, season, year) |> 
+      mutate(month = if_else(season == "early", 7, month),
+             month = if_else(is.na(month), first(month), month),
+             month = if_else(is.na(month), last(month), month)) |> 
+      ungroup() |> 
+      select(-date) |> 
+      # join to SPEI data
+      tidylog::left_join(spei_raw |>  select(-season, -date), by = join_by(siteID, year, month)) |> 
+      rename(treatment = fg_removed)
       #funcabization(., convert_to = "Funder") %>%
       #make_fancy_data(., gridded_climate, fix_treatment = TRUE)
+  ),
+
+  tar_target(
+    name = data_prepped,
+    command = prepare_data(combined_recruitment)
   ),
   
   # prep cover
@@ -139,114 +154,12 @@ transformation_plan <- list(
   tar_target(
     name = remaining_biomass_merged,
     command = merge_community_biomass(community, standing_biomass)
-  ),
+  )
   
 
-  # make biomass coefficients
-  tar_target(
-    name = biomass_coefficients,
-    command = {
-      # get biomass coefficients
-      base <- make_biomass_coefficients(remaining_biomass_merged)
-      # get biomass in 2015
-      biomass_2015 <- base |>
-        filter(year == 2015) |>
-        select(plotID, biomass_2015 = standing_biomass_calculated)
-      # join 2015 biomass back to base
-      base |>
-        tidylog::left_join(biomass_2015, by = "plotID") |>
-        mutate(delta_biomass = standing_biomass_calculated - biomass_2015)
-    }
-  ),
+
   
-  
-  tar_target(
-    name = traits,
-    command = traits_raw |>
-      select(-date, -flag) |>
-      
-      # log transform size traits
-      mutate(
-        value_trans = if_else(
-          trait %in% c(
-            "height",
-            "fresh_mass",
-            "dry_mass",
-            "leaf_area",
-            "leaf_thickness"
-          ),
-          true = suppressWarnings(log(value)),# suppress warnings from log(-value) in isotopes (these are calculated but not kept)
-          false = value
-        ),
-        trait_trans = recode(
-          trait,
-          "height" = "height_log",
-          "fresh_mass" = "fresh_mass_log",
-          "dry_mass" = "dry_mass_log",
-          "leaf_area" = "leaf_area_log",
-          "leaf_thickness" = "leaf_thickness_log"
-        ),
-        trait_trans = factor(trait_trans,
-                             levels = c("height_log", "fresh_mass_log", "dry_mass_log", "leaf_area_log", "leaf_thickness_log", "SLA", "LDMC", "C", "N", "CN_ratio", "d13C", "d15N"))) %>%
-      make_fancy_data(., gridded_climate, fix_treatment = FALSE)
-    
-  ),
-  
-  # bootstrapping
-  # trait imputation
-  tar_target(
-    name = imputed_traits,
-    command = make_trait_impute(cover_data, traits)
-  ),
-  
-  # bootstrapping for CWM
-  tar_target(
-    name = trait_means,
-    command = make_bootstrapping(imputed_traits)
-  )#,
-  
-  # join response and explanatory variables for analysis
-#  tar_target(
-#    name = analysis_data,
-#    command = biomass_coefficients |>
-#      
-#      # join with removed biomass
-#      # 147 biomass_coefficients plots do not join, because removed_biomass has no controls
-#      tidylog::left_join(removed_biomass, by = join_by(siteID, plotID, fg_removed)) |>
-#      # add missing blockID for control plots
-#      mutate(blockID = if_else(is.na(blockID), str_sub(plotID, 1, 4), blockID)) |>
-#      # rename to cumulative removed biomass
-#      rename(cum_removed_biomass = removed_biomass) %>%
-#      make_fancy_data(., gridded_climate, fix_treatment = FALSE)
-    
-    # join with diversity
-    # tidylog::left_join(diversity |>
-    #   ungroup() |>
-    #   filter(year == 2019) |>
-    #   select(-year, -removal, -c(temperature_level:temperature)),
-    #     by = join_by(siteID, plotID, blockID, fg_removed, fg_remaining, functional_group))
-    
-#  ),
-  
-  # join response and explanatory variables for trait analysis
-#  tar_target(
-#    name = analysis_traits,
-#    command = biomass_coefficients |>
-#      # filter for only 2019 data
-#      filter(year == 2019) |>
-#      
-#      # join with removed biomass
-#      # 147 biomass_coefficients plots do not join, because removed_biomass has no controls
-#      # 5 plots from removed_biomass do no join, because they are missing in biomass_coefficients
-#      tidylog::left_join(removed_biomass, by = join_by(siteID, plotID, fg_removed)) |>
-#      # add missing blockID for control plots
-#      mutate(blockID = if_else(is.na(blockID), str_sub(plotID, 1, 4), blockID)) |>
-#      
-#      # join with traits
-#      # WHY DO 720 NOT JOIN???!!!
-#      tidylog::left_join(trait_means)
-#    
-#  )
+
   
 )
 

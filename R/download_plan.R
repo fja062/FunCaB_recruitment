@@ -43,15 +43,15 @@ download_plan <- list(
 #  ),
   
   # plant functional traits
-  tar_target(
-    name = traits_download,
-    command =  get_file(node = "npfa9",
-                        file = "VCG_clean_trait_data_2012-2016.csv",
-                        path = "data",
-                        remote_path = "5_Trait_data"),
-    format = "file"
-  ),
-  
+#  tar_target(
+#    name = traits_download,
+#    command =  get_file(node = "npfa9",
+#                        file = "VCG_clean_trait_data_2012-2016.csv",
+#                        path = "data",
+#                        remote_path = "5_Trait_data"),
+#    format = "file"
+#  ),
+#  
   # climate data
   tar_target(
     name = gridded_climate_download,
@@ -87,6 +87,12 @@ download_plan <- list(
     command =  read_delim("~/OneDrive - University of Bergen/Research/FunCaB/Data/primary/veg_recruitment/PM_rawdata_1112.csv", delim = ",", col_types = cols(.default = "c"))
   ),
 
+    # SPEI data
+  tar_target(
+    name = spei_raw,
+    command =  read_delim("~/OneDrive - University of Bergen/research/FunCaB/Data/secondary/spei_t_sm_20092019.csv", delim = ",")
+  ),
+
   # species corrections
 #  tar_target(
 #    name = species_corrections_raw,
@@ -94,10 +100,10 @@ download_plan <- list(
 #  ),
   
   # plant functional traits
-  tar_target(
-    name = traits_raw,
-    command =  read_csv(traits_download)
-  ),
+#  tar_target(
+#    name = traits_raw,
+#    command =  read_csv(traits_download)
+#  ),
   
   # climate data
   tar_target(
