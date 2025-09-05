@@ -115,9 +115,15 @@ transformation_plan <- list(
       ungroup() |> 
       select(-date) |> 
       # join to SPEI data
-      tidylog::left_join(spei_raw |>  select(-season, -date), by = join_by(siteID, year, month))
+      tidylog::left_join(spei_raw |>  select(-season, -date), by = join_by(siteID, year, month)) |> 
+      rename(treatment = fg_removed)
       #funcabization(., convert_to = "Funder") %>%
       #make_fancy_data(., gridded_climate, fix_treatment = TRUE)
+  ),
+
+  tar_target(
+    name = data_prepped,
+    command = prepare_data(combined_recruitment)
   ),
   
   # prep cover
